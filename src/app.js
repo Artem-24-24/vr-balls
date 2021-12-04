@@ -2,6 +2,7 @@ import * as THREE from 'three/build/three.module.js'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import {VRButton} from "three/examples/jsm/webxr/VRButton"
 import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
+import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
 
 class App {
   constructor() {
@@ -68,13 +69,64 @@ class App {
   }
 
   initScene(){
+ this.radius = 0.8
 
+    this.room = new THREE.LineSegments(
+        new BoxLineGeometry(6, 6, 6, 10, 10, 10),
+        new THREE.LineBasicMaterial({ color: 0x808080})
+    )
+    this.room.geometry.translate( 0, 3, 0 )
+    this.scene.add( this.room )
+
+    const geometry = new THREE.IcosahedronBufferGeometry( this.radius, 2)
+
+    for (let i = 0; i < 200; i ++ ){
+
+      const object = new THREE.Mesh( geometry, new THREE.MeshLambertMaterial({color: Meth.random() * 0xffffff}))
+
+      object.position.x = thes.random(-2, 2)
+      object.position.y = thes.random(-2, 2)
+      object.position.z = thes.random(-2, 2)
+
+      this.room.add(object)
+
+    }
   }
 
-  setupVR(){
+  setupVR() {
+    this.render.xr.enabled = true
+    document.body.appendChild(VRButton.createButton(this.renderer))
 
+
+    this.controllers = this.buildControllers()
   }
 
+  buildControllers() {
+    const controllerModeFactory = new XRControllerModelFactory()
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -1)
+    ])
+    const line = new THREE.Line(geometry)
+    line.name = 'line'
+    line.scale.z = 0
+
+    const contorllers = []
+
+    for (let i=0; i < 2; i++) {
+      const controller = this.renderer.xr.getController(0)
+      controller.add(line.clone())
+      controller.userData.selectPressed = false
+      this.scene.add(controller)
+
+      controllers.push(controller)
+
+      const grip = this.renderer.xr.getControllerGrip(0)
+      grip.add(controllerModelFactory.createControllerModel(grip))
+      this.scene.add(grip)
+    }
+    return controllers
+  }
   resize() {
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
