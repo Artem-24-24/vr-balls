@@ -11,7 +11,7 @@ module.exports = {
     }),
     new CopyWebpackPlugin({
       patterns: [
-        {from: 'public', to: 'inner'}
+        {from: 'public', to: ''}
       ]
     })
   ],
