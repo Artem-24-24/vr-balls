@@ -4,6 +4,10 @@ import {VRButton} from "three/examples/jsm/webxr/VRButton"
 import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
 import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
 
+import officeChairGlb from "../assets/low-poly-mill.glb"
+import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader";
+import {controllers} from "three/examples/jsm/libs/dat.gui.module";
+
 class App {
   constructor() {
     const container = document.createElement('div')
@@ -23,7 +27,7 @@ class App {
     const ambient = new THREE.HemisphereLight( 0x606060, 0x404040, 1)
     this.scene.add(ambient)
 
-    const light = new THREE.DirectionalLight(0xffffff)
+    const light = new THREE.DirectionalLight(0xfffff)
     // light.position.set(0.2, 1, 1)
     light.position.set( 1, 1, 1 ).normalize()
     this.scene.add(light)
@@ -39,8 +43,14 @@ class App {
     this.controls.target.set(0, 1.6, 0)
     this.controls.update()
 
+    this.raycaster = new THREE.Raycaster()
+    this.workingMatrix = new THREE.Matrix4()
+    this.workingVector = new THREE.Vector3()
+
     // this.initSceneCube()
     this.initScene()
+    this.forDebugOnly()
+    this.loadGltf()
     this.setupVR()
 
     this.renderer.setAnimationLoop(this.render.bind(this))
@@ -68,92 +78,150 @@ class App {
     // sphere.position.set(1.5, 0, 0)
   }
 
-  initScene(){
- this.radius = 0.08
+  forDebugOnly() {
+    const geometrySphere = new THREE.SphereGeometry( .5, 32, 16 )
+    const materialSphere = new THREE.MeshBasicMaterial( { color: 0xffff00 } )
+    const sphere = new THREE.Mesh( geometrySphere, materialSphere )
+    sphere.position.set(0, 1.5, -2)
+    this.scene.add( sphere )
+  }
+
+  initScene() {
+    this.radius = 0.08
 
     this.room = new THREE.LineSegments(
-        new BoxLineGeometry(6, 6, 6, 10, 10, 10),
-        new THREE.LineBasicMaterial({ color: 0x808080})
+        new BoxLineGeometry(6, 6, 6, 10, 10, 10,),
+        new THREE.LineBasicMaterial({color: 0x808080})
     )
-    this.room.geometry.translate( 0, 3, 0 )
-    this.scene.add( this.room )
+    this.room.geometry.translate(0, 3, 0)
+    this.scene.add(this.room)
 
-    const geometry = new THREE.IcosahedronBufferGeometry( this.radius, 2)
+    const geometry = new THREE.IcosahedronBufferGeometry(this.radius, 2)
 
-    for (let i = 0; i < 200; i ++ ){
+    for (let i = 0; i < 50; i++) {
 
-      const object = new THREE.Mesh( geometry, new THREE.MeshLambertMaterial({color: Math.random() * 0xffffff}))
+      const objects = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff } ))
 
-      object.position.x = this.random(-2, 2)
-      object.position.y = this.random(-2, 2)
-      object.position.z = this.random(-2, 2)
+      objects.position.x = this.random(-2, 2)
+      objects.position.y = this.random(0, 2)
+      objects.position.z = this.random(-2, 2)
 
-      this.room.add(object)
+      this.room.add(objects)
 
     }
+    this.hightlight = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+      color: 0xFFFFF, side: THREE.BackSide}))
+    this.hightlight.scale.set(1.2, 1.2, 1.2)
+    this.scene.add(this.hightlight)
+  }
 
-    this.highlight = new THREE.Mesh ( geometry, new THREE.MeshBasicMaterial({
-      color: 0xFFFFFF, side: THREE.BackSide }))
-    this.highlight.scale.set(1.2, 1.2, 1.2)
-    this.scene.add(this.highlight )
+
+
+  loadGltf() {
+    const self = this
+    const loader = new GLTFLoader()
+    loader.load(
+        officeChairGlb,
+        (gltf) => {
+          self.chair = gltf.scene
+          self.chair.scale.set(.4,.4,.4)
+         // self.chair.scale.set(1,1,1)
+         // self.chair.scale = new THREE.Vector3(.2,.2,.2)
+          self.scene.add(gltf.scene)
+          // self.loadingBar.visible = false
+          self.renderer.setAnimationLoop(self.render.bind(self))
+
+          self.chair.position.x = 1;
+          self.chair.position.y = 1;
+        },
+        null,
+        // (xhr) => {
+        //   self.loadingBar.progress = xhr.loaded/xhr.total
+        // },
+
+        err => {
+          console.error(`An error happened: ${err}`)
+        }
+    )
   }
 
   setupVR() {
     this.renderer.xr.enabled = true
-    document.body.appendChild(VRButton.createButton(this.renderer))
-
+    document.body.appendChild( VRButton.createButton(this.renderer) )
 
     this.controllers = this.buildControllers()
+
+    const self = this
+
+    function onSelectStart(){
+      this.children[0].scale.z = 10
+      this.userData.selectPressed = true
+    }
+
+    function onSelectEnd(){
+      this.children[0].scale.z = 0
+      self.hightlight.visible = false
+      this.userData.selectPressed = false
+    }
+    this.controllers.forEach( (controller) => {
+      controller.addEventListener('selectstart', onSelectStart);
+      controller.addEventListener('selectend', onSelectEnd);
+    });
   }
 
-    buildControllers() {
-        const controllerModelFactory = new XRControllerModelFactory()
-        const geometry = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(0, 0, 0),
-            new THREE.Vector3(0, 0, -1)
-        ])
-        const line = new THREE.Line(geometry)
-        line.name = 'line'
-        line.scale.z = 0
+  buildControllers() {
+    const controllerModelFactory = new XRControllerModelFactory()
+    const geometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 0, -1)
+    ])
+    const line = new THREE.Line(geometry)
+    line.name = 'line'
+    line.scale.z = 0
 
-        const controllers = []
+    const controllers = []
 
-        const controller = this.renderer.xr.getController(0)
-        controller.add(line.clone())
-        controller.userData.selectPressed = false
-        this.scene.add(controller)
+    for (let i=0; i < 2; i++) {
+      const controller = this.renderer.xr.getController(i)
+      controller.add(line.clone())
+      controller.userData.selectPressed = false
+      this.scene.add(controller)
 
-        controllers.push(controller)
+      controllers.push(controller)
 
-        const grip = this.renderer.xr.getControllerGrip( 0)
-        grip.add(controllerModelFactory.createControllerModel(grip))
-        this.scene.add(grip)
+      const grip = this.renderer.xr.getControllerGrip(i)
+      grip.add(controllerModelFactory.createControllerModel(grip))
+      this.scene.add(grip)
 
-        return controllers
+      // const grip1 = this.renderer.xr.getControllerGrip(1)
+      // grip1.add(controllerModelFactory.createControllerModel(grip1))
+      // this.scene.add(grip1)
     }
-  handleController(controller) {
-    if (controler.userData.selectPressed) {
-      controller.children[0].scale.z = 10
-      this.workingMatrix.identity().extractRotation(controller.matrixWorld)
+    return controllers
+  }
 
-      this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld)
+  handleController(controller) {
+    if (controller.userData.selectPressed) {
+      controller.children[0].scale.z = 10
+      this.workingMatrix.identity().extractRotation( controller.matrixWorld)
+
+      this.raycaster.ray.origin.setFromMatrixPosition( controller.matrixWorld)
 
       this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.workingMatrix)
 
-      const intersects = this.raycaster.intersectObject(this.room.children)
+      const intersects = this.raycaster.intersectObjects(this.room.children)
 
       if (intersects.length > 0) {
-          if(intersects [0].object.uuid !== this.highleght.uuid) {
-              intersects[0].object.add(this.highlight)
-          }
-        this.highlight.visible = true
+        intersects[0].object.add(this.hightlight)
+        this.hightlight.visible = true
         controller.children[0].scale.z = intersects[0].distance
       } else {
-        this.highlight.visible = false
+        this.hightlight.visible = false
       }
     }
   }
-    resize() {
+
+  resize() {
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
@@ -164,9 +232,16 @@ class App {
       this.mesh.rotateX(0.005)
       this.mesh.rotateY(0.01)
     }
+    if (this.controllers) {
+      const self = this
+      this.controllers.forEach((controllers) => {
+        self.handleController(controllers)
+      })
+    }
+
     this.renderer.render(this.scene, this.camera)
   }
+
 }
 
 export {App}
-
