@@ -196,8 +196,9 @@ class App {
     })
     controller.handle = () => this.handleFlashLightController(controller)
 
-    this.scene.add(controller)
     this.controllers[index] = controller
+    this.scene.add(controller)
+
 
   }
 
@@ -275,7 +276,7 @@ class App {
 
     function onSelectEnd () {
       this.children[0].scale.z = 0
-      self.hightlight.visible = false
+      self.highlight.visible = false
       this.userData.selectPressed = false
 
       }
@@ -313,7 +314,7 @@ class App {
 
   handleFlashLightController(controller) {
     if (controller.userData.selectPressed) {
-      this.workingMatrix.identity().extractRotation(controller.matrixWorld)
+      this.workingMatrix.identity().extractRotation( controller.matrixWorld)
 
       this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld)
 
@@ -346,10 +347,7 @@ class App {
       this.mesh.rotateY(0.01)
     }
     if (this.controllers) {
-      const self = this
-      this.controllers.forEach((controllers) => {
-        self.handleController(controllers)
-      })
+      this.controllers.forEach(controller => controller.handle())
     }
 
     this.renderer.render(this.scene, this.camera)
