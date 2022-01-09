@@ -4,6 +4,7 @@ import {VRButton} from "three/examples/jsm/webxr/VRButton"
 import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
 import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
 import flashLightPack from "../assets/flash-light.glb"
+import AxePack from "../assets/Axe.glb"
 import officeChairGlb from "../assets/low-poly-mill.glb"
 import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader";
 import {controllers} from "three/examples/jsm/libs/dat.gui.module";
@@ -101,7 +102,7 @@ class App {
 
     const geometry = new THREE.IcosahedronBufferGeometry(this.radius, 2)
 
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 5; i++) {
 
       const objects = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff } ))
 
@@ -153,10 +154,32 @@ class App {
     document.body.appendChild( VRButton.createButton( this.renderer ) )
 
     let i = 0
-    this.flashLightController(i++)
+    this.AxeController(i++)
+    // this.flashLightController(i++)
     this.buildStandardController(i++)
     // this.buildStandardController(i++)
 
+  }
+  AxeController(index) {
+    const self = this
+
+    let controller = this.renderer.xr.getController(index)
+
+
+    controller.addEventListener( 'connected', function (event) {
+      self.buildAxeController.call(self, event.data, this)
+    })
+    controller.addEventListener( 'disconnected', function () {
+      while(this.children.length > 0) {
+        this.remove(this.children[0])
+        const controllerIndex = self.controllers.indexOf(this)
+        self.controllers[controllerIndex] = null
+      }
+    })
+    controller.handle = () => {}
+
+    this.controllers[index] = controller
+    this.scene.add(controller)
   }
 
   flashLightController(index) {
@@ -201,6 +224,49 @@ class App {
 
 
   }
+  buildAxeController(data, controller ) {
+    let geometry, material, loader
+
+    const self = this
+
+    if (data.targetRayMode === 'tracked-pointer') {
+      loader = new GLTFLoader()
+      loader.load(AxePack, (gltf) => {
+            // const axe = gltf.scene.children[1]
+            const axe = gltf.scene
+            const scale = 0.5
+            axe.scale.set(scale, scale, scale)
+            axe.position.set(-1.3,-0.2,0)
+            axe.rotation.set(0,Math.PI / -2, 0)
+            controller.add(axe)
+            const spotlightGroup = new THREE.Group()
+            self.spotlights[controller.uuid] = spotlightGroup
+
+            const spotlight = new THREE.SpotLight(0xFFFFFF, 2, 12, Math.PI / 15, 0.3)
+            spotlight.position.set(0, 0, 0)
+            spotlight.target.position.set(0, 0, -1)
+            spotlightGroup.add(spotlight.target)
+            spotlightGroup.add(spotlight)
+            controller.add(spotlightGroup)
+
+            spotlightGroup.visible = false
+
+            geometry = new THREE.CylinderBufferGeometry(0.03, 1, 5, 32, true)
+            geometry.rotateX(Math.PI / 2)
+            material = new SpotLightVolumetricMaterial()
+            const cone = new THREE.Mesh(geometry, material)
+            cone.translateZ(-2.6)
+            spotlightGroup.add(cone)
+
+          },
+
+          null,
+
+          (error) => console.error(`An error happened: ${error}`)
+      )
+
+  }
+}
 
   buildFlashLightController(data, controller) {
     let geometry, material, loader
