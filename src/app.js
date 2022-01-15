@@ -5,10 +5,12 @@ import {BoxLineGeometry} from "three/examples/jsm/geometries/BoxLineGeometry"
 import {XRControllerModelFactory} from "three/examples/jsm/webxr/XRControllerModelFactory";
 import flashLightPack from "../assets/flash-light.glb"
 import AxePack from "../assets/Axe.glb"
-import officeChairGlb from "../assets/low-poly-mill.glb"
+import officeChairGlb from "../assets/Tree_House.glb"
 import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader";
 import {controllers} from "three/examples/jsm/libs/dat.gui.module";
 import {SpotLightVolumetricMaterial} from "./utils/SpotLightVolumetricMaterial";
+import {FlashLightController} from "./controllers/FlashLightController";
+
 
 class App {
   constructor() {
@@ -74,6 +76,8 @@ class App {
 
     this.scene.add(this.mesh)
 
+    this.scene.add(this.mesh)
+
     const geometrySphere = new THREE.SphereGeometry( .7, 32, 16 )
     const materialSphere = new THREE.MeshBasicMaterial( { color: 0xffff00 } )
     const sphere = new THREE.Mesh( geometrySphere, materialSphere )
@@ -105,7 +109,7 @@ class App {
 
     const geometry = new THREE.IcosahedronBufferGeometry(this.radius, 2)
 
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 0; i++) {
 
       const object = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: Math.random() * 0xffffff } ))
 
@@ -142,7 +146,7 @@ class App {
           self.renderer.setAnimationLoop(self.render.bind(self))
 
           self.chair.position.x = 1;
-          self.chair.position.y = 1;
+          self.chair.position.y = 7;
         },
         null,
         // (xhr) => {
@@ -165,10 +169,10 @@ class App {
     // this.buildStandardController(i++)
     // this.buildStandardController(i++)
 
-    this.buildDragController(i++)
+    //his.buildDragController(i++)
     //this.flashLightController(i++)
     //this.buildStandardController(i++)
-    //this.flashLightController(i++)
+    this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene, this.movableObjects, this.highlight)
     //this.buildStandardController(i++)
 
   }
@@ -194,48 +198,7 @@ class App {
     this.scene.add(controller)
   }
 
-  flashLightController(index) {
-    const self = this
 
-    function onSelectStart() {
-      this.userData.selectPressed = true
-      if (self.spotlights[this.uuid]) {
-        self.spotlights[this.uuid].visible = true
-      } else {
-        this.children[0].scale.z = 0
-      }
-    }
-
-    function onSelectEnd () {
-      self.highlight.visible = false
-      this.userData.selectPressed = false
-      if (self.spotlights[this.uuid]) {
-        self.spotlights[this.uuid].visible = false
-      } else {
-        this.children[0].scale.z = 0
-      }
-    }
-
-    let controller = this.renderer.xr.getController(index)
-    controller.addEventListener( 'selectstart', onSelectStart );
-    controller.addEventListener( 'selectend', onSelectEnd );
-    controller.addEventListener( 'connected', function (event) {
-      self.buildFlashLightController.call(self, event.data, this)
-    })
-    controller.addEventListener( 'disconnected', function () {
-      while(this.children.length > 0) {
-        this.remove(this.children[0])
-        const controllerIndex = self.controllers.indexOf(this)
-        self.controllers[controllerIndex] = null
-      }
-    })
-    controller.handle = () => this.handleFlashLightController(controller)
-
-    this.controllers[index] = controller
-    this.scene.add(controller)
-
-
-  }
   buildAxeController(data, controller ) {
     let geometry, material, loader
 
@@ -279,51 +242,6 @@ class App {
 
   }
 }
-
-  buildFlashLightController(data, controller) {
-    let geometry, material, loader
-
-    const self = this
-
-    if (data.targetRayMode === 'tracked-pointer') {
-      loader = new GLTFLoader()
-      loader.load(flashLightPack, (gltf) => {
-            const flashLight = gltf.scene.children[2]
-            const scale = 0.5
-            flashLight.scale.set(scale, scale, scale)
-            controller.add(flashLight)
-            const spotlightGroup = new THREE.Group()
-            self.spotlights[controller.uuid] = spotlightGroup
-
-            const spotlight = new THREE.SpotLight(0xFFFFFF, 2, 12, Math.PI / 15, 0.3)
-            spotlight.position.set(0, 0, 0)
-            spotlight.target.position.set(0, 0, -1)
-            spotlightGroup.add(spotlight.target)
-            spotlightGroup.add(spotlight)
-            controller.add(spotlightGroup)
-
-            spotlightGroup.visible = false
-
-            geometry = new THREE.CylinderBufferGeometry(0.03, 1, 5, 32, true)
-            geometry.rotateX(Math.PI / 2)
-            material = new SpotLightVolumetricMaterial()
-            const cone = new THREE.Mesh(geometry, material)
-            cone.translateZ(-2.6)
-            spotlightGroup.add(cone)
-
-          },
-
-          null,
-
-          (error) => console.error(`An error happened: ${error}`)
-      )
-
-    } else if (data.targetRayMode == 'gaze') {
-      geometry = new THREE.RingBufferGeometry(0.02, 0.04, 32).translate(0, 0, -1);
-      material = new THREE.MeshBasicMaterial({opacity: 0.5, transparent: true});
-      controller.add(new THREE.Mesh(geometry, material))
-    }
-  }
 
   buildDragController(index) {
     const controllerModelFactory = new XRControllerModelFactory()
@@ -485,29 +403,6 @@ class App {
       }
     }
   }
-
-  handleFlashLightController(controller) {
-    if (controller.userData.selectPressed) {
-      this.workingMatrix.identity().extractRotation( controller.matrixWorld)
-
-      this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld)
-
-      this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(this.workingMatrix)
-
-      const intersects = this.raycaster.intersectObjects(this.room.children)
-
-      if (intersects.length > 0) {
-        if (intersects[0].objects.uuid !== this.highlight.uuid) {
-          intersects[0].objects.add(this.highlight)
-        }
-        this.highlight.visible = true
-      } else {
-        this.highlight.visible = false
-      }
-    }
-  }
-
-
 
   resize() {
     this.camera.aspect = window.innerWidth / window.innerHeight
