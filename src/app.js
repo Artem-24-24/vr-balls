@@ -105,7 +105,7 @@ class App {
         new THREE.LineBasicMaterial({color: 0x808080})
     )
     this.room.geometry.translate(0, 3, 0)
-    this.scene.add(this.room)
+   // this.scene.add(this.room)
 
     const geometry = new THREE.IcosahedronBufferGeometry(this.radius, 2)
 
@@ -146,7 +146,7 @@ class App {
           self.renderer.setAnimationLoop(self.render.bind(self))
 
           self.chair.position.x = 1;
-          self.chair.position.y = 7;
+          self.chair.position.y = 6;
         },
         null,
         // (xhr) => {
@@ -164,7 +164,7 @@ class App {
     document.body.appendChild( VRButton.createButton( this.renderer ) )
 
     let i = 0
-   // this.AxeController(i++)
+   this.AxeController(i++)
     // this.flashLightController(i++)
     // this.buildStandardController(i++)
     // this.buildStandardController(i++)
