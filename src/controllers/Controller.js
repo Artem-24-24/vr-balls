@@ -113,7 +113,14 @@ export class Controller {
             info[key] = components;
           });
 
-          self.createButtonStates(info.right);
+
+
+
+          if (event.data.handedness === 'left') {
+            self.createButtonStates(info.left);
+          } else {
+            self.createButtonStates(info.right);
+          }
 
           // console.log( JSON.stringify(info) );
         });

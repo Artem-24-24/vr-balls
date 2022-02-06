@@ -8,11 +8,12 @@ export class FlashLightController extends Controller {
   raycaster = new THREE.Raycaster()
   spotlights = {}
 
-  constructor(renderer, index, scene, movableObjects, highlight) {
+  constructor(renderer, index, scene, movableObjects, highlight, dolly) {
     super(renderer, index)
     this.scene = scene
     this.movableObjects = movableObjects
     this.highlight = highlight
+      this.dolly = dolly
     this.build(index)
   }
 
@@ -35,7 +36,7 @@ export class FlashLightController extends Controller {
       this.userData.selectPressed = false
       if (self.spotlights[this.uuid]) {
         self.spotlights[this.uuid].visible = false
-      } else {
+      } else if (this.children[0] !== undefined) {
         this.children[0].scale.z = 0
       }
     }
@@ -56,6 +57,7 @@ export class FlashLightController extends Controller {
   }
 
   handle() {
+      super.handle()
     if (this.controller.userData.selectPressed) {
       this.workingMatrix.identity().extractRotation(this.controller.matrixWorld)
 
@@ -107,6 +109,8 @@ export class FlashLightController extends Controller {
             const cone = new THREE.Mesh(geometry, material)
             cone.translateZ(-2.6)
             spotlightGroup.add(cone)
+
+          this.dolly.add(controller)
           },
           null,
           (error) => console.error(`An error happened: ${error}`)

@@ -58,11 +58,15 @@ class App {
     this.controllers = []
     this.spotlights = {}
 
+    this.elapsedTime = 0
+
     // this.initSceneCube()
     this.initScene()
     this.forDebugOnly()
     this.loadGltf()
     this.setupVR()
+    this.initBoxes()
+
     this.clock = new THREE.Clock()
     this.renderer.setAnimationLoop(this.render.bind(this))
 
@@ -72,7 +76,43 @@ class App {
   random(min, max) {
     return Math.random() * (max - min) + min;
   }
+  initBoxes() {
+    this.scene.background = new THREE.Color(0xA0A0A0)
+    this.scene.fog = new THREE.Fog(0xA0A0A0, 50, 100)
+    // ground
+    const ground = new THREE.Mesh(
+        new THREE.PlaneBufferGeometry(200, 200),
+        new THREE.MeshPhongMaterial({color: 0x999999, depthWrite: false}))
+    ground.rotation.x = -Math.PI / 2
+    this.scene.add(ground)
 
+    var grid = new THREE.GridHelper(200, 40, 0x000000, 0x000000)
+    grid.material.opacity = 0.2
+    grid.material.transparent = true
+    this.scene.add(grid)
+
+    const geometry = new THREE.BoxGeometry(5, 5, 5)
+    const material = new THREE.MeshPhongMaterial({color: 0xAAAA22})
+    const edges = new THREE.EdgesGeometry(geometry)
+    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color: 0x000000, linewidth: 2}))
+
+    this.colliders = []
+
+    for (let x = -100; x < 100; x += 10) {
+      for (let z = -100; z < 100; z += 10) {
+        if (x == 0 && z == 0) {
+          continue
+        }
+        const box = new THREE.Mesh(geometry, material)
+        box.position.set(x, 2.5, z)
+        const edge = line.clone()
+        edge.position.copy(box.position)
+        this.scene.add(box)
+        this.scene.add(edge)
+        this.colliders.push(box)
+      }
+    }
+  }
   initSceneCube() {
     const geometry = new THREE.BoxBufferGeometry()
     const material = new THREE.MeshStandardMaterial({color: 0xFF0000})
@@ -133,8 +173,6 @@ class App {
     }))
     this.highlight.scale.set(1.2, 1.2, 1.2)
     this.scene.add(this.highlight)
-
-    this.ui = this.createUI()
   }
 
   loadGltf() {
@@ -166,20 +204,32 @@ class App {
   }
 
   setupVR() {
+
+    this.dolly = new THREE.Object3D();
+    this.dolly.position.z = 5;
+    this.dolly.add( this.camera );
+    this.scene.add( this.dolly );
+
+    this.dummyCam = new THREE.Object3D();
+    this.camera.add( this.dummyCam );
+
     this.renderer.xr.enabled = true
     document.body.appendChild(VRButton.createButton(this.renderer))
 
     let i = 0
     //this.AxeController(i++)
     // this.flashLightController(i++)
-    this.buildStandardController(i++)
+    // this.buildStandardController(i++)
     // this.buildStandardController(i++)
 
     //his.buildDragController(i++)
     //this.flashLightController(i++)
     //this.buildStandardController(i++)
-    //this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene, this.movableObjects, this.highlight)
+    this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene, this.movableObjects, this.highlight, this.dolly)
+    this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene, this.movableObjects, this.highlight, this.dolly)
     // this.buildStandardController(i++)
+
+
 
     if (this.controllers.length > 1) {
       this.leftUi = this.createUI()
@@ -189,6 +239,8 @@ class App {
     } else {
       this.leftUi = this.createUI()
     }
+
+
   }
   createUI() {
     const config = {
@@ -285,6 +337,7 @@ class App {
         }
       });
     }
+
 
   showDebugText(dt) {
     if (this.renderer.xr.isPresenting) {
@@ -544,6 +597,7 @@ class App {
   }
 
   render() {
+    const dt = this.clock.getDelta()
     if (this.mesh) {
       this.mesh.rotateX(0.005)
       this.mesh.rotateY(0.01)
@@ -551,9 +605,23 @@ class App {
     if (this.controllers) {
       this.controllers.forEach(controller => controller.handle())
     }
-    this.showDebugText()
-    this.renderer.render(this.scene, this.camera)
-  }
-}
+    if (this.controllers.length > 0 && this.controllers[0].buttonStates) {
+      if (this.controllers[0].buttonStates["xr_standard_trigger"]) {
+        const speed = 2
+        const quaternion = this.dolly.quaternion.clone()
+        let worldQuaternion = new THREE.Quaternion()
+        this.dummyCam.getWorldQuaternion(worldQuaternion)
+        this.dolly.quaternion.copy(worldQuaternion)
+        this.dolly.translateZ(-dt * speed)
+        this.dolly.position.y = 0
+        this.dolly.quaternion.copy(quaternion)
+      }
+    }
 
+    this.showDebugText(dt)
+    this.renderer.render(this.scene, this.camera)
+
+ }
+
+}
 export {App}
