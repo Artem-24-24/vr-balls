@@ -12,6 +12,7 @@ import {SpotLightVolumetricMaterial} from "./utils/SpotLightVolumetricMaterial";
 import {FlashLightController} from "./controllers/FlashLightController";
 import {fetchProfile} from "three/examples/jsm/libs/motion-controllers.module";
 import {CanvasUI} from "./utils/CanvasUI";
+import whale from "../assets/whale.glb"
 
 
 const DEFAULT_PROFILES_PATH = 'webxr-input-profiles';
@@ -54,6 +55,7 @@ class App {
 
     this.raycaster = new THREE.Raycaster()
     this.workingMatrix = new THREE.Matrix4()
+    this.workingVector = new THREE.Vector3()
 
     this.controllers = []
     this.spotlights = {}
@@ -166,82 +168,108 @@ class App {
       this.movableObjects.add(object)
 
       // this.room.add(objects)
+      this.highlight = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+        color: 0xFFFFF, side: THREE.BackSide
+      }))
+      this.highlight.scale.set(1.2, 1.2, 1.2)
+      this.scene.add(this.highlight)
+
+      const self = this
+
+      this.loadAsset(whale, .5, .5, .1, scene => {
+        const scale = 5
+        scene.scale.set(scale, scale, scale)
+        self.whale = scene
+      })
 
     }
-    this.highlight = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-      color: 0xFFFFF, side: THREE.BackSide
-    }))
-    this.highlight.scale.set(1.2, 1.2, 1.2)
-    this.scene.add(this.highlight)
   }
 
-  loadGltf() {
-    const self = this
-    const loader = new GLTFLoader()
-    loader.load(
-        officeChairGlb,
-        (gltf) => {
-          self.chair = gltf.scene
-          self.chair.scale.set(.4, .4, .4)
-          // self.chair.scale.set(1,1,1)
-          // self.chair.scale = new THREE.Vector3(.2,.2,.2)
-          self.scene.add(gltf.scene)
-          // self.loadingBar.visible = false
-          self.renderer.setAnimationLoop(self.render.bind(self))
+    loadGltf() {
+      const self = this
+      const loader = new GLTFLoader()
+      loader.load(
+          officeChairGlb,
+          (gltf) => {
+            self.chair = gltf.scene
+            self.chair.scale.set(.4, .4, .4)
+            // self.chair.scale.set(1,1,1)
+            // self.chair.scale = new THREE.Vector3(.2,.2,.2)
+            self.scene.add(gltf.scene)
+            // self.loadingBar.visible = false
+            self.renderer.setAnimationLoop(self.render.bind(self))
 
-          self.chair.position.x = 1;
-          self.chair.position.y = 6;
-        },
-        null,
-        // (xhr) => {
-        //   self.loadingBar.progress = xhr.loaded/xhr.total
-        // },
+            self.chair.position.x = 1;
+            self.chair.position.y = 6;
+          },
+          null,
+          // (xhr) => {
+          //   self.loadingBar.progress = xhr.loaded/xhr.total
+          // },
 
-        err => {
-          console.error(`An error happened: ${err}`)
-        }
-    )
-  }
+          err => {
+            console.error(`An error happened: ${err}`)
+          }
+      )
+    }
 
-  setupVR() {
+    setupVR()
+    {
 
-    this.dolly = new THREE.Object3D();
-    this.dolly.position.z = 5;
-    this.dolly.add( this.camera );
-    this.scene.add( this.dolly );
+      this.dolly = new THREE.Object3D();
+      this.dolly.position.z = 5;
+      this.dolly.add(this.camera);
+      this.scene.add(this.dolly);
 
-    this.dummyCam = new THREE.Object3D();
-    this.camera.add( this.dummyCam );
+      this.dummyCam = new THREE.Object3D();
+      this.camera.add(this.dummyCam);
 
-    this.renderer.xr.enabled = true
-    document.body.appendChild(VRButton.createButton(this.renderer))
+      this.renderer.xr.enabled = true
+      document.body.appendChild(VRButton.createButton(this.renderer))
 
-    let i = 0
-    //this.AxeController(i++)
-    // this.flashLightController(i++)
-    // this.buildStandardController(i++)
-    // this.buildStandardController(i++)
+      let i = 0
+      //this.AxeController(i++)
+      // this.flashLightController(i++)
+      // this.buildStandardController(i++)
+      // this.buildStandardController(i++)
 
-    //his.buildDragController(i++)
-    //this.flashLightController(i++)
-    //this.buildStandardController(i++)
-    this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene, this.movableObjects, this.highlight, this.dolly)
-    this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene, this.movableObjects, this.highlight, this.dolly)
-    // this.buildStandardController(i++)
+      //his.buildDragController(i++)
+      //this.flashLightController(i++)
+      //this.buildStandardController(i++)
+      this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene, this.movableObjects, this.highlight, this.dolly)
+      this.controllers[i] = new FlashLightController(this.renderer, i++, this.scene, this.movableObjects, this.highlight, this.dolly)
+      // this.buildStandardController(i++)
 
 
+      if (this.controllers.length > 1) {
+        this.leftUi = this.createUI()
+        this.leftUi.mesh.position.set(-.6, 1.5, -1)
+        this.rightUi = this.createUI()
+        this.rightUi.mesh.position.set(.6, 1.5, -1)
+      } else {
+        this.leftUi = this.createUI()
+      }
 
-    if (this.controllers.length > 1) {
-      this.leftUi = this.createUI()
-      this.leftUi.mesh.position.set(-.6, 1.5, -1)
-      this.rightUi = this.createUI()
-      this.rightUi.mesh.position.set(.6, 1.5, -1)
-    } else {
-      this.leftUi = this.createUI()
+
+    }
+    loadAsset(gltfFilename, x, y, z, scaneHandler)
+    {
+      const self = this
+      const loader = new GLTFLoader(
+          loader.load(gltfFilename, (gltf) => {
+                const gltfScene = gltf.scene
+                self.scene.add(gltfScene)
+                gltfScene.position.set(x, y, z)
+                if (sceneHandler) {
+                  sceneHandler(gltfScene)
+                }
+              },
+              null,
+              (error) => console.error(`An error happened: ${error}`))
+      )
     }
 
 
-  }
   createUI() {
     const config = {
       panelSize: {height: 0.8},
@@ -594,6 +622,53 @@ class App {
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
+  }
+
+  controllerAction(dt) {
+    if (!this.renderer.xr.isPresenting && this.controllers.length === 0){
+      return
+    }
+
+    if (this.whale && this.controllers[0].buttonStates) {
+      const buttonStates = this.controllers[0].buttonStates
+      if(buttonStates["xr_standart_thumbstick"].button) {
+        const scale = 10
+        this.whale.scale.set(scale, scale, scale)
+      } else if (this.whale) {
+        const scale = 5
+        this.whale.scale.set(scale,scale,scale,)
+      }
+      const xAxis = buttonStates["xr_standart_thumbstick"].xAxis
+      const yAxis = buttonStates["xr_standart_thumbstick"].yAxis
+      this.whale.rotateY(0.1 * xAxis)
+      this.whale.translateY(.02 * yAxis)
+    }
+
+    if (this.controllers[0].buttonStates && this.controllers[0]
+        .buttonStates["xr_standart_trigger"]
+    ){
+      const wallLimit = 1.3
+      let pos = this.dolly.position.clone()
+      pos.y =+ 1
+
+      const speed = 2
+      const  quaternion = this.dolly.quaternion.clone()
+      let worldQuaternion = new THREE.Quaternion()
+      this.dummyCam.getWorldQuaternion(worldQuaternion)
+      this.dolly.quaternion.copy(worldQuaternion)
+
+      this.dolly.getWorldQuaternion(this.workingVector)
+      this.workingVector.negate()
+
+      this.raycaster.set(pos, this.workingVector)
+      const intersect = this.raycaster.intersectObjects(this.colliders)
+      if(intersect.length > 0 && intersect[0].distance < wallLimit) {
+      } else {
+        this.dolly.translateZ( -dt * speed)
+      }
+      this.dolly.position.y = 0
+      this.dolly.quaternion.copy(quaternion)
+    }
   }
 
   render() {
