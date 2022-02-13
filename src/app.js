@@ -12,7 +12,8 @@ import {SpotLightVolumetricMaterial} from "./utils/SpotLightVolumetricMaterial";
 import {FlashLightController} from "./controllers/FlashLightController";
 import {fetchProfile} from "three/examples/jsm/libs/motion-controllers.module";
 import {CanvasUI} from "./utils/CanvasUI";
-import whale from "../assets/whale.glb"
+import Tree from "../assets/Tree.glb"
+import Roblox from "../assets/Roblox.png"
 
 
 const DEFAULT_PROFILES_PATH = 'webxr-input-profiles';
@@ -94,7 +95,8 @@ class App {
     this.scene.add(grid)
 
     const geometry = new THREE.BoxGeometry(5, 5, 5)
-    const material = new THREE.MeshPhongMaterial({color: 0xAAAA22})
+    const texture = new THREE.TextureLoader().load(Roblox)
+    const material = new THREE.MeshPhongMaterial({map: texture})
     const edges = new THREE.EdgesGeometry(geometry)
     const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({color: 0x000000, linewidth: 2}))
 
@@ -166,23 +168,22 @@ class App {
 
       //this.room.add( object )
       this.movableObjects.add(object)
-
-      // this.room.add(objects)
-      this.highlight = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-        color: 0xFFFFF, side: THREE.BackSide
-      }))
-      this.highlight.scale.set(1.2, 1.2, 1.2)
-      this.scene.add(this.highlight)
-
-      const self = this
-
-      this.loadAsset(whale, .5, .5, .1, scene => {
-        const scale = 5
-        scene.scale.set(scale, scale, scale)
-        self.whale = scene
-      })
-
     }
+
+    // this.room.add(objects)
+    this.highlight = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+      color: 0xFFFFF, side: THREE.BackSide
+    }))
+    this.highlight.scale.set(1.2, 1.2, 1.2)
+    this.scene.add(this.highlight)
+
+    const self = this
+
+    this.loadAsset(Tree, .5, .5, .1, scene => {
+      const scale = 5
+      scene.scale.set(scale, scale, scale)
+      self.Tree = scene
+    })
   }
 
     loadGltf() {
@@ -252,11 +253,10 @@ class App {
 
 
     }
-    loadAsset(gltfFilename, x, y, z, scaneHandler)
-    {
+    loadAsset(glbObject, x, y, z, sceneHandler) {
       const self = this
-      const loader = new GLTFLoader(
-          loader.load(gltfFilename, (gltf) => {
+      const loader = new GLTFLoader()
+          loader.load(glbObject, (gltf) => {
                 const gltfScene = gltf.scene
                 self.scene.add(gltfScene)
                 gltfScene.position.set(x, y, z)
@@ -266,7 +266,6 @@ class App {
               },
               null,
               (error) => console.error(`An error happened: ${error}`))
-      )
     }
 
 
@@ -497,7 +496,7 @@ class App {
     }
 
     controller.addEventListener('selectstart', onSelectStart);
-    controller.addEventListener('selectend', onSelectEnd);
+    controller.addEventListener('selected', onSelectEnd);
 
     const tempMatrix = new THREE.Matrix4();
     const rayCaster = new THREE.Raycaster();
@@ -629,23 +628,23 @@ class App {
       return
     }
 
-    if (this.whale && this.controllers[0].buttonStates) {
+    if (this.Tree && this.controllers[0].buttonStates) {
       const buttonStates = this.controllers[0].buttonStates
-      if(buttonStates["xr_standart_thumbstick"].button) {
+      if(buttonStates["xr_standard_thumbstick"].button) {
         const scale = 10
-        this.whale.scale.set(scale, scale, scale)
-      } else if (this.whale) {
+        this.Tree.scale.set(scale, scale, scale)
+      } else if (this.Tree) {
         const scale = 5
-        this.whale.scale.set(scale,scale,scale,)
+        this.Tree.scale.set(scale,scale,scale,)
       }
-      const xAxis = buttonStates["xr_standart_thumbstick"].xAxis
-      const yAxis = buttonStates["xr_standart_thumbstick"].yAxis
-      this.whale.rotateY(0.1 * xAxis)
-      this.whale.translateY(.02 * yAxis)
+      const xAxis = buttonStates["xr_standard_thumbstick"].xAxis
+      const yAxis = buttonStates["xr_standard_thumbstick"].yAxis
+      this.Tree.rotateY(0.1 * xAxis)
+      this.Tree.translateY(.02 * yAxis)
     }
 
     if (this.controllers[0].buttonStates && this.controllers[0]
-        .buttonStates["xr_standart_trigger"]
+        .buttonStates["xr_standard_trigger"]
     ){
       const wallLimit = 1.3
       let pos = this.dolly.position.clone()
@@ -656,13 +655,18 @@ class App {
       let worldQuaternion = new THREE.Quaternion()
       this.dummyCam.getWorldQuaternion(worldQuaternion)
       this.dolly.quaternion.copy(worldQuaternion)
+      this.dolly.translateZ(-dt * speed)
+      this.dolly.position.y = 0
+      this.dolly.quaternion.copy(quaternion)
 
-      this.dolly.getWorldQuaternion(this.workingVector)
+
+      this.dolly.getWorldDirection(this.workingVector)
       this.workingVector.negate()
 
       this.raycaster.set(pos, this.workingVector)
       const intersect = this.raycaster.intersectObjects(this.colliders)
       if(intersect.length > 0 && intersect[0].distance < wallLimit) {
+        this.dolly.translateZ( dt * speed * 2)
       } else {
         this.dolly.translateZ( -dt * speed)
       }
@@ -694,7 +698,10 @@ class App {
     }
 
     this.showDebugText(dt)
+    this.controllerAction(dt)
     this.renderer.render(this.scene, this.camera)
+
+
 
  }
 
